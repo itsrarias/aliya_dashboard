@@ -1,0 +1,242 @@
+/* ====== base tokens ====== */
+@import './variables.css';
+
+/* ---------- full-screen background ---------- */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-page);
+}
+
+/* ---------- outer layout ---------- */
+.container {
+  height: 100vh;                   /* lock to viewport height */
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;             /* center header & card horizontally */
+  background: var(--bg-page);
+  overflow: hidden;                /* prevent scrolling */
+}
+
+/* -------- logo header -------- */
+.navbar {
+  width: 100%;
+  padding-top: 2rem;               /* space from top edge */
+  display: flex;
+  justify-content: center;         /* center logo */
+  background: transparent;         /* inherit full-screen bg */
+}
+
+.navbar-logo {
+  height: 100px;                    /* bumped-up size */
+  width: auto;                     /* preserve aspect ratio */
+}
+
+/* -------- card wrapper -------- */
+.form-wrapper {
+  flex: 1;                         /* fill remaining space */
+  width: 100%;
+  display: flex;
+  align-items: center;             /* vertical center */
+  justify-content: center;         /* horizontal center */
+}
+
+/* ---------- sign-in card ---------- */
+.email-form-card {
+  max-width: 700px;                /* more room for inputs */
+  width: 90%;                      /* responsive down to mobile */
+  margin: 0;                       /* remove bottom margin */
+  padding: 2rem;
+  background: var(--card-bg);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.05),
+    0 10px 25px -10px rgba(0,0,0,0.6);
+  text-align: center;
+}
+
+/* ---------- header ---------- */
+.email-form-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.email-form-header h1 {
+  font-family: 'Playfair Display', serif;  /* only heading uses Playfair */
+  font-size: 2.5rem;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin: 0;
+}
+
+/* ---------- form grid ---------- */
+.email-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+@media (min-width: 768px) {
+  .email-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ---------- inputs ---------- */
+.email-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.email-form-group label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--label);
+  margin-bottom: 0.25rem;
+}
+
+.email-form-input,
+.email-form-select,
+.email-form-textarea {
+  background: transparent;
+  border: 1px solid var(--input-brd);
+  border-radius: 0.5rem;
+  padding: 0.75rem;                /* slightly more padding for comfort */
+  color: var(--white);
+  font-family: inherit;            /* inherits Inter */
+  font-size: 1rem;
+}
+
+.email-form-input::placeholder,
+.email-form-textarea::placeholder {
+  color: var(--input-ph);
+}
+
+.email-form-textarea {
+  resize: vertical;
+}
+
+/* ---------- buttons ---------- */
+.email-form-button {
+  grid-column: 1 / -1;
+  padding: 0.75rem;
+  background: var(--btn-bg);
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.email-form-button:hover:not(:disabled) {
+  background: var(--btn-hov);
+}
+.email-form-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- result / status box ---------- */
+.email-form-result {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--btn-bg);
+  border-radius: 0.5rem;
+}
+
+.email-form-result-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--label);
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- utility actions (copy / zoom) ---------- */
+.email-form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.email-form-copy-btn,
+.email-form-zoom-btn,
+.email-form-send-btn {
+  background: var(--btn-bg);
+  color: var(--accent);
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.email-form-copy-btn.copied {
+  background: var(--btn-success);
+}
+
+.email-form-copy-btn:disabled,
+.email-form-send-btn:disabled {
+  background: var(--btn-disabled);
+  cursor: not-allowed;
+}
+
+.email-form-copy-btn:hover:not(:disabled),
+.email-form-zoom-btn:hover,
+.email-form-send-btn:hover:not(:disabled) {
+  background: var(--btn-hov);
+}
+
+.email-form-status {
+  font-size: 0.875rem;
+  margin-top: 1rem;
+}
+.email-form-status.success {
+  color: var(--success);
+}
+.email-form-status.error {
+  color: var(--error);
+}
+
+/* ---------- modal (if still used) ---------- */
+.email-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.email-modal {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 2rem;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.email-modal-close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #333;
+}
+
+/* ---------- field-level errors ---------- */
+.email-form-field-error {
+  color: #e53e3e;               /* red */
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  text-align: left;
+}

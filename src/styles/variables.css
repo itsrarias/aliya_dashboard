@@ -1,0 +1,18 @@
+:root {
+  /* layout */
+  --bg-page:   #0b0c2a;
+  --card-bg:   #0f1d3a;
+
+  /* text & UI */
+  --white:     #ffffff;
+  --label:     #cbd5e0;
+  --input-brd: #1f2a44;
+  --input-ph:  #a0aec0;
+
+  /* buttons */
+  --btn-bg:    #374d83;
+  --btn-hov:   #4b67ad;
+
+  /* accents */
+  --accent:    #f7fafc;
+}

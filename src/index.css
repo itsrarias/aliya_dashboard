@@ -1,0 +1,32 @@
+/* import both fonts */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400;500;600&display=swap');
+
+/* your color & spacing tokens */
+:root {
+  --bg-page:   #0b0c2a;
+  --card-bg:   #0f1d3a;
+  --white:     #ffffff;
+  --label:     #cbd5e0;
+  --input-brd: #1f2a44;
+  --input-ph:  #a0aec0;
+  --btn-bg:    #374d83;
+  --btn-hov:   #4b67ad;
+  --accent:    #f7fafc;
+}
+
+/* sensible reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg-page);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;       /* <-- body font */
+  -webkit-font-smoothing: antialiased;
+}
