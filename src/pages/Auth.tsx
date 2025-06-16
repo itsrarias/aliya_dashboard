@@ -23,6 +23,11 @@ export default function AuthPage() {
 
     if (result.error) {
       const msg = result.error.message;
+      // if we just resent the link, show it as a form‐level notice
+      if (msg.includes('Confirmation link resent')) {
+        setFormError(msg);
+        return;
+      }
       if (msg.toLowerCase().includes('email')) {
         setEmailError(msg);
       } else if (msg.toLowerCase().includes('password')) {

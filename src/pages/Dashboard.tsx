@@ -1,29 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../api/supabase';
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-} from '@tanstack/react-table';
-import {
+  ResponsiveContainer,
+  ComposedChart,
+  CartesianGrid,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
 } from 'recharts';
-import styles from '../styles/dashboard.module.css';
 import type { SeriesRow } from '../types/series';
-import type { ColumnDef } from '@tanstack/react-table';
-import { flexRender } from '@tanstack/react-table';
+import { TooltipProps } from 'recharts';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28EFF'];
-
-export default function MainDashboard() {
+export default function DashboardCharts() {
+  // --- Filters State ---
   const [data, setData] = useState<SeriesRow[]>([]);
   const [filters, setFilters] = useState({
     timePeriod: 'all',
@@ -31,363 +24,537 @@ export default function MainDashboard() {
     spv: '',
     class: '',
     investor: '',
-    rm: '',
-    solicitor: '',
   });
 
-  // Fetch data with filters
+  // Formatter for USD
+  const currencyFormatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+
+  // --- Fetch Data ---
   useEffect(() => {
     async function fetchData() {
-      let query = supabase.from('series_data').select('*');
+      let query = supabase
+        .from('series_data')
+        .select('*')
+        .eq('table_type', 'tblSeries');
       if (filters.fund) query = query.eq('fund', filters.fund);
       if (filters.spv) query = query.eq('spv', filters.spv);
       if (filters.class) query = query.eq('class', filters.class);
       if (filters.investor)
         query = query.ilike('investor', `%${filters.investor}%`);
-      if (filters.rm) query = query.eq('rm', filters.rm);
-      if (filters.solicitor) query = query.eq('solicitor', filters.solicitor);
       if (filters.timePeriod !== 'all') {
         const date = new Date();
-        if (filters.timePeriod === 'lastMonth')
-          date.setMonth(date.getMonth() - 1);
-        if (filters.timePeriod === 'lastYear')
-          date.setFullYear(date.getFullYear() - 1);
+        if (filters.timePeriod === 'lastMonth') date.setMonth(date.getMonth() - 1);
+        if (filters.timePeriod === 'lastYear') date.setFullYear(date.getFullYear() - 1);
         query = query.gte('inserted_at', date.toISOString());
       }
       const { data: rows, error } = await query;
       if (error) console.error(error);
-      else setData(rows);
+      else setData(rows as SeriesRow[]);
     }
     fetchData();
   }, [filters]);
 
-  // --- Capital Summary ---
-  const totalCapitalRaised = useMemo(
-    () => data.reduce((sum, r) => sum + (r.subscription_amount || 0), 0),
-    [data]
-  );
-const fundsData = useMemo(() => {
+  const [excludeZeros, setExcludeZeros] = useState(false);
+
+   // --- Filtered Data for Zero Exclusion ---
+  const filteredData = useMemo(() => {
+    return excludeZeros
+      ? data.filter(r =>
+          (r.percent_acq_fee || 0) > 0 ||
+          (r.percent_broker_fee || 0) > 0 ||
+          (r.percent_spv_reserve || 0) > 0 ||
+          (r.percent_mgmt_fee || 0) > 0 ||
+          (r.percent_reserve_fee || 0) > 0 ||
+          (r.loan_fee_percent || 0) > 0
+        )
+      : data;
+  }, [data, excludeZeros]);
+
+  // --- 1) Investor-concentration Pareto ---
+const paretoData = useMemo(() => {
+  // 1) Sum subscription per investor
   const totals = data.reduce<Record<string, number>>((acc, r) => {
-    acc[r.fund] = (acc[r.fund] || 0) + (r.subscription_amount || 0);
+    if (!r.investor) return acc;
+    acc[r.investor] = (acc[r.investor] || 0) + (r.subscription_amount ?? 0);
     return acc;
   }, {});
 
-  return Object.entries(totals).map(([name, value]) => ({ name, value }));
-}, [data]);
+  // 2) Turn into array and sort descending
+  const arr = Object.entries(totals)
+    .map(([name, amount]) => ({ name, amount }))
+    .sort((a, b) => b.amount - a.amount);
 
-const top5Series = useMemo(() => {
-  const spvTotals = data.reduce<Record<string, number>>((acc, r) => {
-    acc[r.spv] = (acc[r.spv] || 0) + (r.subscription_amount || 0);
-    return acc;
-  }, {});
-
-  return Object.entries(spvTotals)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([name, value]) => ({ name, value }));
-}, [data]);
-
-const tableTypeData = useMemo(() => {
-  const typeTotals = data.reduce<Record<string, number>>((acc, r) => {
-    acc[r.table_type] = (acc[r.table_type] || 0) + (r.subscription_amount || 0);
-    return acc;
-  }, {});
-
-  return Object.entries(typeTotals).map(([name, value]) => ({ name, value }));
-}, [data]);
-
-
-  // --- Investor Table ---
-  const columns = useMemo<ColumnDef<SeriesRow>[]>(
-    () => [
-      { header: 'Investor', accessorKey: 'investor' },
-      { header: 'Subscription Amount', accessorKey: 'subscription_amount' },
-      { header: '% Ownership', accessorKey: 'percent_ownership' },
-      {
-        header: 'Side Letter',
-        id: 'side_letter',
-        accessorFn: (row: SeriesRow) => (row.side_letter ? 'Yes' : 'No'),
-      },
-    ],
-    []
-  );
-  const table = useReactTable<SeriesRow>({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+  // 3) Compute cumulative %
+  const total = arr.reduce((sum, d) => sum + d.amount, 0);
+  let running = 0;
+  return arr.map(d => {
+    running += d.amount;
+    return {
+      ...d,
+      cumulativePercent: +(running / total * 100).toFixed(2),
+    };
   });
-
-  // --- Fees Overview ---
-  const totalMgmtFees = useMemo(
-    () => data.reduce((sum, r) => sum + (r.mgmt_fee || 0), 0),
-    [data]
-  );
-  const totalBrokerFees = useMemo(
-    () => data.reduce((sum, r) => sum + (r.broker_fee || 0), 0),
-    [data]
-  );
-  const avgAcqFee = useMemo(
-    () => (data.length ? data.reduce((sum, r) => sum + (r.acq_fee || 0), 0) / data.length : 0),
-    [data]
-  );
-  const loanFeeRevenue = useMemo(
-    () => data.reduce((sum, r) => sum + (r.loan_fee || 0), 0),
-    [data]
-  );
-
-  // --- Share & Ownership Metrics ---
-  const totalShares = useMemo(
-    () => data.reduce((sum, r) => sum + (r.num_shares || 0), 0),
-    [data]
-  );
-  const avgPPS = useMemo(
-    () => (data.length ? data.reduce((sum, r) => sum + (r.pps || 0), 0) / data.length : 0),
-    [data]
-  );
-  const avgOwnership = useMemo(
-    () => (data.length ? data.reduce((sum, r) => sum + (r.percent_ownership || 0), 0) / data.length : 0),
-    [data]
-  );
-
-// --- Red Flags ---
-const redFlags = useMemo(() => {
-  const negativeSpreads = data.filter(r => (r.spread ?? 0) < 0);
-  const highReserves = data.filter(r => (r.percent_spv_reserve ?? 0) > 20);
-  const missingFields = data.filter(
-    r => r.percent_ownership == null || r.acq_fee == null
-  );
-
-  const amounts = data.map(r => r.subscription_amount ?? 0);
-  const mean = amounts.reduce((a, b) => a + b, 0) / (amounts.length || 1);
-  const std = Math.sqrt(
-    amounts.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (amounts.length || 1)
-  );
-  const outliers = data.filter(
-    r => Math.abs((r.subscription_amount ?? 0) - mean) > 2 * std
-  );
-
-  return { negativeSpreads, highReserves, missingFields, outliers };
 }, [data]);
 
+/** VERBOSE debugging tooltip */
+const ParetoTooltip: React.FC<TooltipProps<number, string>> = ({
+  active,
+  payload,
+  label,
+}) => {
+  // ─────────── 1. ENTRY ───────────
+  console.log('[TT] render  →  active:', active, ' label:', label);
+  console.log('[TT] payload →', payload);
 
-// --- Team Contributions ---
-const topRMs = useMemo(() => {
-  const byRm = data.reduce<Record<string, number>>((acc, r) => {
-    // coalesce null subscription_amount to 0
-    acc[r.rm] = (acc[r.rm] || 0) + (r.subscription_amount ?? 0);
-    return acc;
-  }, {});
+  if (!active) {
+    console.log('[TT] inactive → returning null');
+    return null;
+  }
+  if (!payload || payload.length === 0) {
+    console.log('[TT] no payload → returning null');
+    return null;
+  }
 
-  return Object.entries(byRm)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([name, value]) => ({ name, value }));
-}, [data]);
+  // payload[0].payload should be { name, amount, cumulativePercent }
+  const raw = payload[0].payload as
+    | { name?: string; amount?: number; cumulativePercent?: number }
+    | undefined;
 
-const rmVsSolicitor = useMemo(() => {
-  const rmTotal = topRMs.reduce((sum, r) => sum + r.value, 0);
-  const solTotal =
-    data.reduce((sum, r) => sum + (r.subscription_amount ?? 0), 0) - rmTotal;
-  return [
-    { name: 'RM', value: rmTotal },
-    { name: 'Solicitor', value: solTotal },
-  ];
-}, [data, topRMs]);
+  console.log('[TT] raw data row →', raw);
+
+  if (!raw) {
+    console.log('[TT] raw = undefined → returning null');
+    return null;
+  }
+
+  const { name, amount, cumulativePercent } = raw;
+
+  if (
+    name === undefined ||
+    amount === undefined ||
+    cumulativePercent === undefined
+  ) {
+    console.log('[TT] missing field(s) →', { name, amount, cumulativePercent });
+    return null;
+  }
+
+  // ─────────── 2. SUCCESS ───────────
+  console.log('[TT] SUCCESS → rendering tooltip for', name);
 
   return (
-    <div className={styles.dashboard}>
-      {/* Filters */}
-      <div className={styles.filters}>
-        <select
-          value={filters.timePeriod}
-          onChange={e => setFilters({ ...filters, timePeriod: e.target.value })}
-          className={styles.select}
-        >
-          <option value="all">All Time</option>
-          <option value="lastMonth">Last Month</option>
-          <option value="lastYear">Last Year</option>
-        </select>
-        <input
-          type="text"
-          placeholder="Fund"
-          value={filters.fund}
-          onChange={e => setFilters({ ...filters, fund: e.target.value })}
-          className={styles.input}
-        />
-        <input
-          type="text"
-          placeholder="SPV"
-          value={filters.spv}
-          onChange={e => setFilters({ ...filters, spv: e.target.value })}
-          className={styles.input}
-        />
-        {/* add other filter inputs similarly */}
-      </div>
+    <div
+      style={{
+        backgroundColor: '#fff',
+        border: '1px solid #ccc',
+        padding: 8,
+        borderRadius: 4,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+        lineHeight: 1.5,
+        color: '#222',
+      }}
+    >
+    <strong>{name}</strong>
+    <br />
+    <span style={{ color: '#8884d8' /* same purple as your bars */ }}>
+      Subscription:
+    </span>{' '}
+    <span style={{ color: '#8884d8' }}>
+      {currencyFormatter.format(amount)}
+    </span>
+    <br />
+    <span style={{ color: '#FF8042' /* same orange as your line */ }}>
+      Cumulative %:
+    </span>{' '}
+    <span style={{ color: '#FF8042' }}>
+      {cumulativePercent.toFixed(2)}%
+    </span>
+  </div>
+  );
+};
 
-      {/* Capital Summary */}
-      <section className={styles.section}>
-        <h2 className={styles.heading}>Capital Summary</h2>
-        <div className={styles.kpiBox}>
-          <span>Total Raised</span>
-          <strong>${totalCapitalRaised.toLocaleString()}</strong>
-        </div>
-        <div className={styles.chartsRow}>
-          <BarChart width={300} height={200} data={fundsData}>
-            <Bar dataKey="value" fill={COLORS[0]} />
+
+
+
+// --- 2) Portfolio-level fee waterfall ---
+  const feeSums = useMemo(() => {
+    const totalSub = filteredData.reduce((sum, r) => sum + (r.subscription_amount || 0), 0);
+    if (totalSub === 0) {
+      return {
+        acqPct: 0,
+        brokerPct: 0,
+        mgmtPct: 0,
+        reservePct: 0,
+        spvReservePct: 0,
+        loanFeePct: 0,
+        netPct: 100,
+        acqChargedPct: 0,
+        brokerChargedPct: 0,
+        mgmtChargedPct: 0,
+        reserveChargedPct: 0,
+        spvReserveChargedPct: 0,
+        loanFeeChargedPct: 0,
+      };
+    }
+
+    // Calculate capital subject to each fee
+    const acqCapital = filteredData.reduce((s, r) => s + ((r.percent_acq_fee || 0) > 0 ? r.subscription_amount || 0 : 0), 0);
+    const brokerCapital = filteredData.reduce((s, r) => s + ((r.percent_broker_fee || 0) > 0 ? r.subscription_amount || 0 : 0), 0);
+    const mgmtCapital = filteredData.reduce((s, r) => s + ((r.percent_mgmt_fee || 0) > 0 ? r.subscription_amount || 0 : 0), 0);
+    const reserveCapital = filteredData.reduce((s, r) => s + ((r.percent_reserve_fee || 0) > 0 ? r.subscription_amount || 0 : 0), 0);
+    const spvReserveCapital = filteredData.reduce((s, r) => s + ((r.percent_spv_reserve || 0) > 0 ? r.subscription_amount || 0 : 0), 0);
+    const loanFeeCapital = filteredData.reduce((s, r) => s + ((r.loan_fee_percent || 0) > 0 ? r.subscription_amount || 0 : 0), 0);
+
+    // Compute each $ amount
+    const acq$ = filteredData.reduce((s, r) => s + (r.subscription_amount || 0) * (r.percent_acq_fee || 0), 0);
+    const broker$ = filteredData.reduce((s, r) => s + (r.subscription_amount || 0) * (r.percent_broker_fee || 0), 0);
+    const mgmt$ = filteredData.reduce((s, r) => s + (r.subscription_amount || 0) * (r.percent_mgmt_fee || 0), 0);
+    const reserve$ = filteredData.reduce((s, r) => s + (r.subscription_amount || 0) * (r.percent_reserve_fee || 0), 0);
+    const spvReserve$ = filteredData.reduce((s, r) => s + (r.subscription_amount || 0) * (r.percent_spv_reserve || 0), 0);
+    const loanFee$ = filteredData.reduce((s, r) => s + (r.subscription_amount || 0) * (r.loan_fee_percent || 0), 0);
+
+    // Convert to %
+    const acqPct = (acq$ / totalSub) * 100;
+    const brokerPct = (broker$ / totalSub) * 100;
+    const mgmtPct = (mgmt$ / totalSub) * 100;
+    const reservePct = (reserve$ / totalSub) * 100;
+    const spvReservePct = (spvReserve$ / totalSub) * 100;
+    const loanFeePct = (loanFee$ / totalSub) * 100;
+
+    // Percentage of capital charged
+    const acqChargedPct = (acqCapital / totalSub) * 100;
+    const brokerChargedPct = (brokerCapital / totalSub) * 100;
+    const mgmtChargedPct = (mgmtCapital / totalSub) * 100;
+    const reserveChargedPct = (reserveCapital / totalSub) * 100;
+    const spvReserveChargedPct = (spvReserveCapital / totalSub) * 100;
+    const loanFeeChargedPct = (loanFeeCapital / totalSub) * 100;
+
+    // Net = remainder of the 100%
+    const totalFeesPct = acqPct + brokerPct + mgmtPct + reservePct + spvReservePct + loanFeePct;
+    const netPct = 100 - totalFeesPct;
+
+    return {
+      acqPct,
+      brokerPct,
+      mgmtPct,
+      reservePct,
+      spvReservePct,
+      loanFeePct,
+      netPct,
+      acqChargedPct,
+      brokerChargedPct,
+      mgmtChargedPct,
+      reserveChargedPct,
+      spvReserveChargedPct,
+      loanFeeChargedPct,
+    };
+  }, [filteredData]);
+
+  const waterfallData = useMemo(() => {
+    const {
+      acqPct,
+      brokerPct,
+      mgmtPct,
+      reservePct,
+      spvReservePct,
+      loanFeePct,
+      netPct,
+      acqChargedPct,
+      brokerChargedPct,
+      mgmtChargedPct,
+      reserveChargedPct,
+      spvReserveChargedPct,
+      loanFeeChargedPct,
+    } = feeSums;
+
+    return [
+      { name: 'Commitment', value: 100, chargedPct: 100 },
+      { name: 'Acquisition Fee', value: -acqPct, chargedPct: acqChargedPct },
+      { name: 'Broker Fee', value: -brokerPct, chargedPct: brokerChargedPct },
+      { name: 'Management Fee', value: -mgmtPct, chargedPct: mgmtChargedPct },
+      { name: 'Fund Reserve', value: -reservePct, chargedPct: reserveChargedPct },
+      { name: 'SPV Reserve', value: -spvReservePct, chargedPct: spvReserveChargedPct },
+      { name: 'Loan Fee', value: -loanFeePct, chargedPct: loanFeeChargedPct },
+      { name: 'Net Subscription', value: netPct, chargedPct: 100 },
+    ];
+  }, [feeSums]);
+
+// ───── DEBUG LOGS ─────
+console.log('▶ feeSums:', feeSums);
+console.log('▶ waterfallData:', waterfallData);
+// ────────────────────────
+
+
+  // --- 3) Ownership distribution histogram ---
+  const histData = useMemo(() => {
+    const bins = [
+      { name: '0–1%', min: 0, max: 1, count: 0 },
+      { name: '1–5%', min: 1, max: 5, count: 0 },
+      { name: '5–10%', min: 5, max: 10, count: 0 },
+      { name: '>10%', min: 10, max: Infinity, count: 0 },
+    ];
+    data.forEach(r => {
+      const pct = (r.percent_ownership || 0) * 100;
+      const bin = bins.find(b => pct >= b.min && pct < b.max) || bins[3];
+      bin.count += 1;
+    });
+    return bins;
+  }, [data]);
+
+  console.log('Rows in query:', data.length);
+console.log('Rows summed in bins:', histData.reduce((s,b)=>s+b.count,0));
+
+
+
+
+  // --- 4) Top-5 by SPV ---
+  const top5SPV = useMemo(() => {
+    const totals = data.reduce<Record<string, number>>((acc, r) => {
+      if (!r.spv || !r.subscription_amount) return acc;
+      acc[r.spv] = (acc[r.spv] || 0) + r.subscription_amount;
+      return acc;
+    }, {});
+    return Object.entries(totals)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([name, value]) => ({ name, value }));
+  }, [data]);
+
+// --- 5) Net Subscription per Class ---
+const classData = useMemo(() => {
+  const totals = data.reduce<Record<string, number>>((acc, r) => {
+    if (!r.class || !r.net_subscription) return acc;
+    acc[r.class] = (acc[r.class] || 0) + r.net_subscription;
+    return acc;
+  }, {});
+
+  // turn into array, then sort biggest → smallest
+  return Object.entries(totals)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+}, [data]);
+
+
+  // use the built-in “compact” notation for K/M suffixes
+const compactFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  compactDisplay: 'short',
+  maximumFractionDigits: 1,
+});
+
+
+return (
+  <div style={{ padding: 16 }}>
+    {/* Filters */}
+    <div style={{ marginBottom: 16 }}>
+      <select
+        value={filters.timePeriod}
+        onChange={e => setFilters({ ...filters, timePeriod: e.target.value })}
+      >
+        <option value="all">All Time</option>
+        <option value="lastMonth">Last Month</option>
+        <option value="lastYear">Last Year</option>
+      </select>
+      <input
+        placeholder="Fund"
+        value={filters.fund}
+        onChange={e => setFilters({ ...filters, fund: e.target.value })}
+        style={{ marginLeft: 8 }}
+      />
+      <input
+        placeholder="SPV"
+        value={filters.spv}
+        onChange={e => setFilters({ ...filters, spv: e.target.value })}
+        style={{ marginLeft: 8 }}
+      />
+      <input
+        placeholder="Class"
+        value={filters.class}
+        onChange={e => setFilters({ ...filters, class: e.target.value })}
+        style={{ marginLeft: 8 }}
+      />
+      <input
+        placeholder="Investor"
+        value={filters.investor}
+        onChange={e => setFilters({ ...filters, investor: e.target.value })}
+        style={{ marginLeft: 8 }}
+      />
+    </div>
+
+    {/* 1) Pareto */}
+    <section style={{ marginBottom: 32 }}>
+      <h3>Who really funds us?</h3>
+      <p>80/20 view of capital by investor.</p>
+<ResponsiveContainer width="100%" height={300}>
+<ComposedChart
+  data={paretoData}
+  margin={{ top: 20, right: 50, bottom: 20, left: 80 }}  // ← was 20
+>
+
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis dataKey="name" tick={false} axisLine={false} height={0} />
+<YAxis
+  yAxisId="left"
+  width={80}
+  tickMargin={8}
+  tickFormatter={(value) => currencyFormatter.format(value)}  // ← formats 100000 → $100,000.00
+  label={{
+    value: 'Amount ($)',
+    angle: -90,
+    position: 'insideLeft',
+    offset: -65,
+    style: { textAnchor: 'middle' },
+  }}
+/>
+
+    <YAxis
+      yAxisId="right"
+      orientation="right"
+      domain={[0, 100]}
+      label={{ value: 'Cumulative %', angle: 90, position: 'insideRight' }}
+    />
+ <Tooltip content={<ParetoTooltip />} />
+
+    <Legend />
+    <Bar
+      yAxisId="left"
+      dataKey="amount"
+      name="Subscription"
+      fill="#8884d8"
+    />
+    <Line
+      yAxisId="right"
+      dataKey="cumulativePercent"
+      name="Cumulative %"
+      stroke="#FF8042"
+      dot
+    />
+  </ComposedChart>
+</ResponsiveContainer>
+    </section>
+
+      {/* 2) Waterfall */}
+      <section style={{ marginBottom: 32 }}>
+        <h3>Where does every $1 go?</h3>
+        <p>Fee drag waterfall for $100 of commitments.</p>
+        {filteredData.length === 0 || feeSums.acqPct === 0 && feeSums.brokerPct === 0 && feeSums.mgmtPct === 0 && feeSums.reservePct === 0 ? (
+          <div>No data available to display the waterfall chart.</div>
+        ) : (
+<ResponsiveContainer width="100%" height={300}>
+  <ComposedChart
+    data={waterfallData}
+    margin={{ top: 20, right: 20, bottom: 20, left: 50 }}  // ← give more left-gutter for label
+    stackOffset="sign"
+  >
+    <CartesianGrid strokeDasharray="3 3" />
+
+    <XAxis dataKey="name" />
+
+    <YAxis
+      // 1) auto-scale to min/max (so negatives show up)
+      domain={['dataMin', 'dataMax']}
+      // 2) render ticks like "−0.07%" or "100.00%"
+      tickFormatter={(value) => `${value.toFixed(2)}%`}
+      // 3) axis label
+      label={{
+        value: '% of Commitment',
+        angle: -90,
+        position: 'insideLeft',
+        offset: -30,
+        style: { textAnchor: 'middle' },
+      }}
+    />
+
+    <Tooltip formatter={(v: number) => `${v.toFixed(2)} %`} />
+    <Legend />
+
+    <Bar
+      dataKey="chargedPct"
+      fill="#d3d3d3"
+      name="% of Capital Charged"
+      barSize={10}
+      opacity={0.5}
+    />
+    <Bar
+      dataKey="value"
+      fill="#82ca9d"
+      name="% of Commitment"
+      barSize={20}
+    />
+  </ComposedChart>
+</ResponsiveContainer>
+
+        )}
+      </section>
+
+      {/* 3) Histogram */}
+      <section style={{ marginBottom: 32 }}>
+        <h3>Ownership distribution</h3>
+        <p>Frequency of % ownership stakes.</p>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={histData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" label={{ value: '% Ownership Bin', position: 'insideBottom', offset: -5 }} />
+            <YAxis label={{ value: 'Count', angle: -90, position: 'insideLeft' }} />
+            <Tooltip />
+            <Bar dataKey="count" fill="#8884d8" />
+          </BarChart>
+        </ResponsiveContainer>
+      </section>
+
+{/* 4) Top-5 SPV */}
+<section style={{ marginBottom: 32 }}>
+  <h3>Top 5 SPVs by Subscription</h3>
+  <ResponsiveContainer width="100%" height={300}>
+    <BarChart
+      data={top5SPV}
+      margin={{ top: 20, right: 20, bottom: 20, left: 80 }} // ← extra left margin for label
+    >
+      <CartesianGrid strokeDasharray="3 3" />
+
+      <XAxis dataKey="name" />
+
+<YAxis
+  domain={[1_000_000, 30_000_000]}
+  tickFormatter={(value) => compactFormatter.format(value)}
+  label={{
+    value: 'Subscription ($)',
+    angle: -90,
+    position: 'insideLeft',
+    offset: -10,
+    style: { textAnchor: 'middle' },
+  }}
+/>
+
+
+      <Tooltip
+        formatter={(value: number) => currencyFormatter.format(value)}
+      />
+
+      <Bar dataKey="value" fill="#8884d8" name="Subscription" />
+    </BarChart>
+  </ResponsiveContainer>
+</section>
+
+
+      {/* 5) Subscription per Class */}
+      <section>
+        <h3>Net Subscription per Class</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={classData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
             <XAxis dataKey="name" />
             <YAxis />
-            <Tooltip />
+            <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+            <Bar dataKey="value" fill="#FFBB28" />
           </BarChart>
-          <BarChart width={300} height={200} data={top5Series}>
-            <Bar dataKey="value" fill={COLORS[1]} />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-          </BarChart>
-          <PieChart width={300} height={200}>
-            <Pie data={tableTypeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-              {tableTypeData.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-          </PieChart>
-        </div>
+        </ResponsiveContainer>
       </section>
 
-      {/* Investor Breakdown */}
-      <section className={styles.section}>
-        <h2 className={styles.heading}>Investor Breakdown</h2>
-        <table className={styles.table}>
-          <thead>
-            {table.getHeaderGroups().map(headerGroup => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map(header => (
-              <th
-                key={header.id}
-                onClick={header.column.getToggleSortingHandler()}
-                className={styles.th}
-              >
-                {!header.isPlaceholder &&
-                  flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
-                {/* sort icon */}
-                {(() => {
-                  const sort = header.column.getIsSorted();
-                  if (sort === 'asc') return ' 🔼';
-                  if (sort === 'desc') return ' 🔽';
-                  return '';
-                })()}
-      </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map(row => (
-              <tr key={row.id}>
-                {row.getVisibleCells().map(cell => (
-                  <td key={cell.id} className={styles.td}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {/* Fees Overview */}
-      <section className={styles.section}>
-        <h2 className={styles.heading}>Fees Overview</h2>
-        <div className={styles.grid4}>
-          <div className={styles.kpiBox}>
-            <span>Total Mgmt Fees</span>
-            <strong>${totalMgmtFees.toLocaleString()}</strong>
-          </div>
-          <div className={styles.kpiBox}>
-            <span>Total Broker Fees</span>
-            <strong>${totalBrokerFees.toLocaleString()}</strong>
-          </div>
-          <div className={styles.kpiBox}>
-            <span>Avg Acquisition Fee</span>
-            <strong>${avgAcqFee.toFixed(2)}</strong>
-          </div>
-          <div className={styles.kpiBox}>
-            <span>Loan Fee Revenue</span>
-            <strong>${loanFeeRevenue.toLocaleString()}</strong>
-          </div>
-        </div>
-      </section>
-
-      {/* Share & Ownership Metrics */}
-      <section className={styles.section}>
-        <h2 className={styles.heading}>Share & Ownership Metrics</h2>
-        <div className={styles.grid3}>
-          <div className={styles.kpiBox}>
-            <span>Total Shares Issued</span>
-            <strong>{totalShares.toLocaleString()}</strong>
-          </div>
-          <div className={styles.kpiBox}>
-            <span>Avg Price per Share</span>
-            <strong>${avgPPS.toFixed(2)}</strong>
-          </div>
-          <div className={styles.kpiBox}>
-            <span>Avg Ownership %</span>
-            <strong>{(avgOwnership * 100).toFixed(2)}%</strong>
-          </div>
-        </div>
-      </section>
-
-      {/* Red Flags */}
-      <section className={styles.section}>
-        <h2 className={styles.heading}>Red Flags</h2>
-        <ul className={styles.redFlagsList}>
-          <li>⚠️ Negative Spreads: {redFlags.negativeSpreads.length}</li>
-          <li>⚠️ High Reserves (&gt;20%): {redFlags.highReserves.length}</li>
-          <li>⚠️ Missing Fields: {redFlags.missingFields.length}</li>
-          <li>⚠️ Subscription Outliers: {redFlags.outliers.length}</li>
-        </ul>
-      </section>
-
-      {/* Team Contributions */}
-      <section className={styles.section}>
-        <h2 className={styles.heading}>Team Contributions</h2>
-        <div className={styles.chartsRow}>
-          <div>
-            <h3>Top RMs</h3>
-            <BarChart width={300} height={200} data={topRMs}>
-              <Bar dataKey="value" fill={COLORS[2]} />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-            </BarChart>
-          </div>
-          <div>
-            <h3>RM vs Solicitor</h3>
-            <PieChart width={300} height={200}>
-              <Pie
-                data={rmVsSolicitor}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label
-              >
-                {rmVsSolicitor.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

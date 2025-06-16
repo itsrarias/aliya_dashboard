@@ -1,4 +1,3 @@
-// src/api/supabase.ts
 import {
   createClient,
   SupabaseClient,
@@ -7,7 +6,7 @@ import {
   User,
 } from '@supabase/supabase-js';
 
-const supabaseUrl   = import.meta.env.VITE_SUPABASE_URL   as string;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -89,16 +88,47 @@ export async function loginOrRegister(
       await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirm`,
-        },
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
       });
 
+    // Handle sign-up errors, including unconfirmed existing users
+    if (signUpError) {
+      // Supabase returns “User already registered” if email exists but unconfirmed
+      if (
+        signUpError.status === 400 &&
+        signUpError.message.includes('User already registered')
+      ) {
+        // Resend the sign-up confirmation email
+        const { error: resendError } = await supabase.auth.resend({
+          type: 'signup',
+          email,
+          options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+        });
+        return {
+          created: true,
+          confirmed: false,
+          data: null,
+          error: resendError
+            ? new Error('Couldn’t resend confirmation link: ' + resendError.message)
+            : new Error('Confirmation link resent—check your inbox!'),
+        };
+      }
+
+      // Other sign-up errors
+      return {
+        created: true,
+        confirmed: false,
+        data: signUpData,
+        error: signUpError,
+      };
+    }
+
+    // Sign-up succeeded (unconfirmed)
     return {
       created: true,
       confirmed: false,
       data: signUpData,
-      error: signUpError,
+      error: null,
     };
   }
 
