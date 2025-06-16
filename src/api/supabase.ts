@@ -50,94 +50,87 @@ export async function loginOrRegister(
     };
   }
 
-  // Try signing in first
+  // 1) Try signing in first
   const { data: signInData, error: signInError } =
     await supabase.auth.signInWithPassword({ email, password });
 
-  // Successful login → done
   if (!signInError) {
+    // ✅ Logged in successfully
+    return { created: false, confirmed: true, data: signInData, error: null };
+  }
+
+  // 2) Check for “wrong credentials” (Supabase uses 400 + “Invalid login credentials”)
+  if (signInError.status === 400 &&
+      signInError.message.toLowerCase().includes('invalid login credentials')) {
     return {
       created: false,
-      confirmed: true,
-      data: signInData,
-      error: null,
+      confirmed: false,
+      data: null,
+      error: new Error('Invalid email or password.'),
     };
   }
 
-  // If credentials invalid (400), treat as new user
-  if (signInError.status === 400) {
-    // 1) Enforce password strength for new registrations
-    //    - at least 6 characters
-    //    - at least one lowercase
-    //    - at least one uppercase
-    //    - at least one symbol (non-alphanumeric)
-    const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{6,}$/;
-    if (!pwdRegex.test(password)) {
-      return {
-        created: false,
-        confirmed: false,
-        data: null,
-        error: new Error(
-          'Password must be at least 6 characters and include a symbol, uppercase and lowercase letters.'
-        ),
-      };
-    }
+  // 3) At this point, it wasn’t “invalid credentials” – assume new user:
+  //    (your existing signup code goes here)
 
-    // 2) Attempt sign-up
-    const { data: signUpData, error: signUpError } =
-      await supabase.auth.signUp({
+  // 3a) Validate password strength...
+  const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{6,}$/;
+  if (!pwdRegex.test(password)) {
+    return {
+      created: false,
+      confirmed: false,
+      data: null,
+      error: new Error(
+        'Password must be at least 6 characters and include a symbol, uppercase and lowercase letters.'
+      ),
+    };
+  }
+
+  // 3b) Attempt sign-up
+  const { data: signUpData, error: signUpError } =
+    await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+    });
+
+  // 3c) Handle sign-up errors
+  if (signUpError) {
+    // existing-but-unconfirmed user
+    if (
+      signUpError.status === 400 &&
+      signUpError.message.includes('User already registered')
+    ) {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
         email,
-        password,
         options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
       });
-
-    // Handle sign-up errors, including unconfirmed existing users
-    if (signUpError) {
-      // Supabase returns “User already registered” if email exists but unconfirmed
-      if (
-        signUpError.status === 400 &&
-        signUpError.message.includes('User already registered')
-      ) {
-        // Resend the sign-up confirmation email
-        const { error: resendError } = await supabase.auth.resend({
-          type: 'signup',
-          email,
-          options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
-        });
-        return {
-          created: true,
-          confirmed: false,
-          data: null,
-          error: resendError
-            ? new Error('Couldn’t resend confirmation link: ' + resendError.message)
-            : new Error('Confirmation link resent—check your inbox!'),
-        };
-      }
-
-      // Other sign-up errors
       return {
         created: true,
         confirmed: false,
-        data: signUpData,
-        error: signUpError,
+        data: null,
+        error: resendError
+          ? new Error('Couldn’t resend confirmation link: ' + resendError.message)
+          : new Error('Confirmation link resent — check your inbox!'),
       };
     }
 
-    // Sign-up succeeded (unconfirmed)
+    // other sign-up error
     return {
       created: true,
       confirmed: false,
       data: signUpData,
-      error: null,
+      error: signUpError,
     };
   }
 
-  // Other errors (network, etc.)
+  // 3d) New user created (unconfirmed)
   return {
-    created: false,
+    created: true,
     confirmed: false,
-    data: null,
-    error: signInError,
+    data: signUpData,
+    error: null,
   };
 }
 

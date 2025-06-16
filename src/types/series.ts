@@ -9,7 +9,7 @@ export interface SeriesRow {
   class: string;
   broker: string;
   investor: string;
-  side_letter: boolean;
+  side_letter: string;
   sl_notes: string | null;
   rm: string;
   percent_rm: number | null;

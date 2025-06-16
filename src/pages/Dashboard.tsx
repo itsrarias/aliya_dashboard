@@ -11,6 +11,8 @@ import {
   YAxis,
   Tooltip,
   Legend,
+  Scatter,
+  ScatterChart,
 } from 'recharts';
 import type { SeriesRow } from '../types/series';
 import { TooltipProps } from 'recharts';
@@ -180,7 +182,6 @@ const ParetoTooltip: React.FC<TooltipProps<number, string>> = ({
 
 
 
-
 // --- 2) Portfolio-level fee waterfall ---
   const feeSums = useMemo(() => {
     const totalSub = filteredData.reduce((sum, r) => sum + (r.subscription_amount || 0), 0);
@@ -339,6 +340,20 @@ const classData = useMemo(() => {
     .sort((a, b) => b.value - a.value);
 }, [data]);
 
+// --- 6) Gross Subscription per Class ---
+const classDataGross = useMemo(() => {
+  const totals = data.reduce<Record<string, number>>((acc, r) => {
+    if (!r.class || !r.subscription_amount) return acc;
+    acc[r.class] = (acc[r.class] || 0) + r.subscription_amount;
+    return acc;
+  }, {});
+
+  // turn into array, then sort biggest → smallest
+  return Object.entries(totals)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+}, [data]);
+
 
   // use the built-in “compact” notation for K/M suffixes
 const compactFormatter = new Intl.NumberFormat('en-US', {
@@ -346,6 +361,171 @@ const compactFormatter = new Intl.NumberFormat('en-US', {
   compactDisplay: 'short',
   maximumFractionDigits: 1,
 });
+
+/**
+ * 7) Investor-level scatter data (filtered by current `data`)
+ */
+const investorScatter = useMemo(() => {
+  interface Agg { totalSub: number; weightedFeeSum: number; slSeries: Set<string>; }
+  const map: Record<string, Agg> = {};
+
+  data.forEach(r => {
+    if (!r.investor || r.subscription_amount == null || r.percent_mgmt_fee == null) return;
+    const sub = r.subscription_amount;
+    const feePct = r.percent_mgmt_fee * 100;    // turn into pct
+    const inv = r.investor;
+
+    if (!map[inv]) {
+      map[inv] = { totalSub: 0, weightedFeeSum: 0, slSeries: new Set() };
+    }
+
+    map[inv].totalSub        += sub;
+    map[inv].weightedFeeSum  += sub * feePct;
+    if (r.side_letter?.trim()) {
+      map[inv].slSeries.add(r.sheet_name);
+    }
+  });
+
+  return Object.entries(map).map(([investor, agg]) => ({
+    investor,
+    sub:    agg.totalSub,
+    feePct: agg.totalSub
+      ? agg.weightedFeeSum / agg.totalSub
+      : 0,
+    series: Array.from(agg.slSeries),        // e.g. ["Series A","Series B"]
+    hasSL:  agg.slSeries.size > 0,
+  }));
+}, [data]);
+
+interface ScatterRow {
+  investor: string;
+  sub: number;
+  feePct: number;
+  series: string[];
+  hasSL: boolean;
+}
+
+/** VERBOSE debugging tooltip for the investor scatter */
+const InvestorTooltip: React.FC<TooltipProps<number, string>> = ({
+  active,
+  payload,
+  label,
+}) => {
+  console.log('[IT] render → active:', active, ' label:', label);
+  console.log('[IT] payload →', payload);
+
+  if (!active || !payload || payload.length === 0) {
+    console.log('[IT] inactive or no payload → null');
+    return null;
+  }
+
+  // Extract our row object
+  const raw = payload[0].payload as ScatterRow | undefined;
+  console.log('[IT] raw data →', raw);
+  if (!raw) {
+    console.log('[IT] raw undefined → null');
+    return null;
+  }
+
+  const { investor, sub, feePct, series, hasSL } = raw;
+  console.log('[IT] SUCCESS → rendering for', investor);
+
+  return (
+    <div
+      style={{
+        backgroundColor: '#fff',
+        border: '1px solid #ccc',
+        padding: 8,
+        borderRadius: 4,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+        fontSize: 14,
+        color: '#222',
+      }}
+    >
+      <strong>
+        {investor} {hasSL ? '(SL)' : ''}
+      </strong>
+      <br />
+      <em style={{ color: '#64748b' }}>
+        Series:{' '}
+        {series.length > 0 ? series.join(', ') : 'No side-letter'}
+      </em>
+      <br />
+      <span style={{ color: '#8884d8' }}>Gross Sub:</span>{' '}
+      <span style={{ color: '#8884d8' }}>
+        {currencyFormatter.format(sub)}
+      </span>
+      <br />
+      <span style={{ color: '#EF4444' }}>Mgmt Fee:</span>{' '}
+      <span style={{ color: '#EF4444' }}>
+        {feePct.toFixed(2)}%
+      </span>
+    </div>
+  );
+};
+
+const subDomain = useMemo<[number,number]>(() => {
+  const max = Math.max(0, ...investorScatter.map(d => d.sub));
+  return [0, niceCeil(max)];
+}, [investorScatter]);
+
+const feeDomain = useMemo<[number,number]>(() => {
+  const allFees = investorScatter.map(d => d.feePct);
+  const min = Math.min(...allFees);
+  const max = Math.max(...allFees);
+  // pad by 1 point each side:
+  return [Math.floor(min) - 1, Math.ceil(max) + 1];
+}, [investorScatter]);
+
+
+
+
+// ── 1) helper: round up to a “nice” ceiling ──
+function niceCeil(n: number): number {
+  if (n >= 1_000_000) return Math.ceil(n / 1_000_000) * 1_000_000;
+  if (n >=   1_000) return Math.ceil(n /   1_000) *   1_000;
+  return Math.ceil(n /     100) *     100;
+}
+
+// ── 2) helper: round down to a “nice” floor ──
+function niceFloor(n: number): number {
+  if (n <= -1_000_000) return Math.floor(n / 1_000_000) * 1_000_000;
+  if (n <=   -1_000) return Math.floor(n /   1_000) *   1_000;
+  return Math.floor(n /     100) *     100;
+}
+
+// ── 3) derive domains ──
+const paretoDomainLeft = useMemo<[number, number]>(() => {
+  const max = Math.max(0, ...paretoData.map(d => d.amount));
+  return [0, niceCeil(max)];
+}, [paretoData]);
+
+const waterfallDomain = useMemo<[number, number]>(() => {
+  const vals = waterfallData.map(d => d.value);
+  const min = Math.min(0, ...vals);
+  const max = Math.max(0, ...vals);
+  return [niceFloor(min), niceCeil(max)];
+}, [waterfallData]);
+
+const histDomain = useMemo<[number, number]>(() => {
+  const max = Math.max(0, ...histData.map(d => d.count));
+  return [0, niceCeil(max)];
+}, [histData]);
+
+const spvDomain = useMemo<[number, number]>(() => {
+  const max = Math.max(0, ...top5SPV.map(d => d.value));
+  return [0, niceCeil(max)];
+}, [top5SPV]);
+
+const classDomain = useMemo<[number, number]>(() => {
+  const max = Math.max(0, ...classData.map(d => d.value));
+  return [0, niceCeil(max)];
+}, [classData]);
+
+const classGrossDomain = useMemo<[number, number]>(() => {
+  const max = Math.max(0, ...classDataGross.map(d => d.value));
+  return [0, niceCeil(max)];
+}, [classDataGross]);
 
 
 return (
@@ -509,7 +689,7 @@ return (
 
 {/* 4) Top-5 SPV */}
 <section style={{ marginBottom: 32 }}>
-  <h3>Top 5 SPVs by Subscription</h3>
+  <h3>Top 5 SPVs by Gross Subscription</h3>
   <ResponsiveContainer width="100%" height={300}>
     <BarChart
       data={top5SPV}
@@ -520,7 +700,7 @@ return (
       <XAxis dataKey="name" />
 
 <YAxis
-  domain={[1_000_000, 30_000_000]}
+  domain={spvDomain}
   tickFormatter={(value) => compactFormatter.format(value)}
   label={{
     value: 'Subscription ($)',
@@ -542,18 +722,131 @@ return (
 </section>
 
 
-      {/* 5) Subscription per Class */}
-      <section>
-        <h3>Net Subscription per Class</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={classData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
-            <Bar dataKey="value" fill="#FFBB28" />
-          </BarChart>
-        </ResponsiveContainer>
-      </section>
+{/* 5) Net Subscription per Class */}
+<section style={{ marginBottom: 32 }}>
+  <h3>Net Subscription per Class</h3>
+  <ResponsiveContainer width="100%" height={300}>
+    <BarChart
+      data={classData}
+      margin={{ top: 20, right: 20, bottom: 20, left: 80 }}  // extra left for the label
+    >
+      <CartesianGrid strokeDasharray="3 3" />
+
+      <XAxis dataKey="name" />
+
+      <YAxis
+        domain={classDomain}
+        tickFormatter={value => compactFormatter.format(value)}
+        label={{
+          value: 'Net Subscription ($)',
+          angle: -90,
+          position: 'insideLeft',
+          offset: -10,
+          style: { textAnchor: 'middle' },
+        }}
+      />
+
+      <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+
+      <Bar dataKey="value" fill="#FFBB28" />
+    </BarChart>
+  </ResponsiveContainer>
+</section>
+
+{/* 6) Gross Subscription per Class */}
+<section style={{ marginBottom: 32 }}>
+  <h3>Gross Subscription per Class</h3>
+  <ResponsiveContainer width="100%" height={300}>
+    <BarChart
+      data={classDataGross}
+      margin={{ top: 20, right: 20, bottom: 20, left: 80 }}  // extra left for the label
+    >
+      <CartesianGrid strokeDasharray="3 3" />
+
+      <XAxis dataKey="name" />
+
+      <YAxis
+        domain={classGrossDomain}
+        tickFormatter={value => compactFormatter.format(value)}
+        label={{
+          value: 'Net Subscription ($)',
+          angle: -90,
+          position: 'insideLeft',
+          offset: -10,
+          style: { textAnchor: 'middle' },
+        }}
+      />
+
+      <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+
+      <Bar dataKey="value" fill="#32a852" />
+    </BarChart>
+  </ResponsiveContainer>
+</section>
+
+{/* 7) Investor-level mgmt-fee vs gross subscription */}
+<section style={{ marginBottom: 32 }}>
+  <h3>Investor Fee Breaks (per Investor)</h3>
+  <ResponsiveContainer width="100%" height={360}>
+    <ScatterChart
+      margin={{ top: 20, right: 40, bottom: 40, left: 80 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" />
+
+      {/* X = Gross Subscription */}
+      <XAxis
+        type="number"
+        dataKey="sub"
+        domain={subDomain}
+        tickFormatter={v => compactFormatter.format(v)}
+        label={{
+          value: 'Gross Subscription',
+          position: 'insideBottom',
+          offset: -40,
+          style: { textAnchor: 'middle' },
+        }}
+      />
+
+      {/* Y = Mgmt-Fee % */}
+      <YAxis
+        type="number"
+        dataKey="feePct"
+        domain={feeDomain}
+        tickFormatter={v => `${v.toFixed(2)}%`}
+        label={{
+          value: 'Mgmt Fee (%)',
+          angle: -90,
+          position: 'insideLeft',
+          offset: -10,
+          style: { textAnchor: 'middle' },
+        }}
+      />
+
+      <Tooltip
+        content={<InvestorTooltip />}
+        cursor={{ strokeDasharray: '3 3' }}
+      />
+
+
+      <Legend />
+
+      {/* Standard vs Side-Letter */}
+      <Scatter
+        name="Standard Terms"
+        data={investorScatter.filter(d => !d.hasSL)}
+        fill="#94a3b8"
+      />
+      <Scatter
+        name="With Side Letter"
+        data={investorScatter.filter(d => d.hasSL)}
+        fill="#4ade80"
+      />
+    </ScatterChart>
+  </ResponsiveContainer>
+</section>
+
+
+
 
     </div>
   );

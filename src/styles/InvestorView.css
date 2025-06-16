@@ -1,0 +1,95 @@
+/* container padding */
+.iv-container {
+  padding: 1.5rem;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+/* search box */
+.iv-search {
+  position: relative;
+  width: 300px;
+  margin-bottom: 1rem;
+}
+.iv-search input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+}
+.iv-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #333;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  color: #333;
+}
+.iv-suggestions li {
+  padding: 0.5rem;
+  cursor: pointer;
+}
+.iv-suggestions li:hover {
+  background: #eef2f7;
+}
+
+/* table wrapper for horizontal scroll */
+.iv-table-wrap {
+  overflow-x: auto;
+}
+
+/* full-width, modern table */
+.iv-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid #000; /* outer border */
+}
+
+/* header row */
+.iv-table thead th {
+  background: #001f3f;        /* navy */
+  color: #fff;                /* white text */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 2px solid #000; /* black horizontal line */
+  border-right: 1px solid #000;  /* black vertical line */
+}
+
+/* table cells */
+.iv-table th,
+.iv-table td {
+  padding: 0.75rem 1rem;
+  border-right: 1px solid #000;  /* black vertical line */
+  border-bottom: 1px solid #000; /* black horizontal line */
+  white-space: nowrap;
+}
+
+/* remove right border on last cell */
+.iv-table th:last-child,
+.iv-table td:last-child {
+  border-right: none;
+}
+
+/* zebra striping */
+.iv-table tbody tr:nth-child(even) {
+  background: #fafafb;
+}
+
+/* hover highlight */
+.iv-table tbody tr:hover {
+  background: #d5dee7;
+}
+
+/* smaller text in table */
+.iv-table td {
+  font-size: 0.95rem;
+  color: #333;
+}
