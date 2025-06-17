@@ -33,6 +33,7 @@
   cursor: not-allowed;
 }
 
+
 /* table wrapper for horizontal scroll */
 .tv-table-wrap, 
 .tv-container > div[style] {
@@ -46,6 +47,7 @@
   background: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   border: 1px solid #000; /* outer border */
+  table-layout: auto;     /* let content fit */
 }
 
 /* header row */
@@ -55,19 +57,22 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;    /* reduced padding */
+  font-size: 0.85rem;         /* smaller text */
   text-align: left;
-  border-bottom: 2px solid #000; /* black horizontal line */
-  border-right: 1px solid #000;  /* black vertical line */
+  border-bottom: 2px solid #000;
+  border-right: 1px solid #000;
 }
 
 /* table cells */
 .tv-table th,
 .tv-table td {
-  padding: 0.75rem 1rem;
-  border-right: 1px solid #000;  /* black vertical line */
-  border-bottom: 1px solid #000; /* black horizontal line */
-  white-space: nowrap;
+  padding: 0.5rem 0.75rem;          /* reduced padding */
+  font-size: 0.85rem;               /* smaller text */
+  border-right: 1px solid #000;
+  border-bottom: 1px solid #000;
+  white-space: normal;              /* allow wrapping */
+  word-wrap: break-word;            /* break long words */
 }
 
 /* remove right border on last cell */
@@ -91,3 +96,57 @@
   font-size: 0.95rem;
   color: #333;
 }
+
+/* full-width dark pill wrapper */
+.tv-search-bar {
+  display: flex;
+  align-items: center;
+  width: 35%;
+  background: #333;
+  padding: 0.75rem 1rem;
+  border-radius: 9999px;
+  box-sizing: border-box;
+}
+
+/* shared icon style */
+.tv-icon {
+  background: transparent;
+  border: none;
+  color: #fff;
+  padding: 0 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* input fills the remaining space */
+.tv-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 1rem;
+  margin: 0 0.5rem;
+}
+
+/* placeholder color */
+.tv-search-input::placeholder {
+  color: #aaa;
+}
+
+.tv-send:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* hover states */
+.tv-icon:hover:not(:disabled) {
+  color: #ddd;
+}
+.tv-icon:active:not(:disabled) {
+  transform: scale(0.95);
+}
+

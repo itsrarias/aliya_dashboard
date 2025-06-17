@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { supabase } from '../api/supabase';
 import OpenAI from 'openai';                // ← new import
 import '../styles/AliyaGPT.css';          
+import { FiPlus, FiTool, FiMic, FiArrowUp } from 'react-icons/fi'
 
 // instantiate the v5 client (warning: this exposes your key in-browser)
 const openai = new OpenAI({
@@ -202,17 +203,26 @@ loan_fee_percent, loan_fee, net_subscription, inserted_at
     <div className="tv-container">
       <h2>AliyaGPT</h2>
 
-      <form onSubmit={handleSubmit} style={{ marginBottom: '1rem' }}>
-        <input
-          style={{ width: '60%', padding: '0.5rem' }}
-          placeholder="Ask in plain English…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-        />
-        <button type="submit" disabled={thinking} style={{ marginLeft: 8 }}>
-          {thinking ? 'Thinking…' : 'Run'}
-        </button>
-      </form>
+   <form onSubmit={handleSubmit} className="tv-search-bar">
+
+      {/* the actual input */}
+      <input
+        className="tv-search-input"
+        placeholder="Ask in plain English…"
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+      />
+
+      {/* send arrow */}
+      <button
+        type="submit"
+        disabled={thinking}
+        className="tv-icon tv-send"
+      >
+        <FiArrowUp />
+      </button>
+    </form>
+
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 

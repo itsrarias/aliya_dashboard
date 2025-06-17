@@ -13,6 +13,12 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
+// at top, add a sharesFormatter
+const sharesFormatter = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 // Aliya name variants
 const ALIYA_NAMES = [
   'aliya',
@@ -299,7 +305,7 @@ export default function InvestorView() {
                   <td>{r.solicitor}</td>
                   <td>{(r.percent_solicitor * 100).toFixed(2)}%</td>
                   <td>{r.model}</td>
-                  <td>{r.num_shares}</td>
+                  <td>{sharesFormatter.format(r.num_shares)}</td>
                   <td>{(r.percent_ownership * 100).toFixed(2)}%</td>
                   <td>{r.pps}</td>
                   <td>{r.basis}</td>

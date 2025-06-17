@@ -21,7 +21,6 @@ export default function DashboardCharts() {
   // --- Filters State ---
   const [data, setData] = useState<SeriesRow[]>([]);
   const [filters, setFilters] = useState({
-    timePeriod: 'all',
     fund: '',
     spv: '',
     class: '',
@@ -49,12 +48,7 @@ export default function DashboardCharts() {
       if (filters.class) query = query.eq('class', filters.class);
       if (filters.investor)
         query = query.ilike('investor', `%${filters.investor}%`);
-      if (filters.timePeriod !== 'all') {
-        const date = new Date();
-        if (filters.timePeriod === 'lastMonth') date.setMonth(date.getMonth() - 1);
-        if (filters.timePeriod === 'lastYear') date.setFullYear(date.getFullYear() - 1);
-        query = query.gte('inserted_at', date.toISOString());
-      }
+
       const { data: rows, error } = await query;
       if (error) console.error(error);
       else setData(rows as SeriesRow[]);
@@ -532,14 +526,6 @@ return (
   <div style={{ padding: 16 }}>
     {/* Filters */}
     <div style={{ marginBottom: 16 }}>
-      <select
-        value={filters.timePeriod}
-        onChange={e => setFilters({ ...filters, timePeriod: e.target.value })}
-      >
-        <option value="all">All Time</option>
-        <option value="lastMonth">Last Month</option>
-        <option value="lastYear">Last Year</option>
-      </select>
       <input
         placeholder="Fund"
         value={filters.fund}
