@@ -3,7 +3,7 @@ import '../styles/NavBar.css';               // optional; see sample styles belo
 
 const navItems = [
   { to: '/',           label: 'Home' },
-  { to: '/table',      label: 'Table View' },
+  { to: '/table',      label: 'Summary' },
   { to: '/series',     label: 'Series View' },
   { to: '/investors',  label: 'Investor View' },
   { to: '/aliyagpt',   label: 'AliyaGPT' },

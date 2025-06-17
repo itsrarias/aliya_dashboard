@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../api/supabase';
 import type { SeriesRow } from '../types/series';
+import { useSearchParams } from 'react-router-dom';
 import '../styles/InvestorView.css';
 
 // formatter for dollars
@@ -21,8 +22,16 @@ const ALIYA_NAMES = [
 
 export default function InvestorView() {
   const [data, setData] = useState<SeriesRow[]>([]);
-  const [input, setInput] = useState('');
-  const [selected, setSelected] = useState('');
+
+  // read & write “investor” from URL + localStorage
+  const [searchParams, setSearchParams] = useSearchParams();
+  const qsInv   = searchParams.get('investor') ?? '';
+  const stored  = localStorage.getItem('lastInvestor') ?? '';
+  const initial = qsInv || stored;
+
+  const [input,    setInput]    = useState(initial);
+  const [selected, setSelected] = useState(initial);
+
   const [showSug, setShowSug] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +86,26 @@ export default function InvestorView() {
       r.investor?.trim().toLowerCase().includes(sel)
     );
   }, [data, selected]);
+
+  // whenever selected changes, sync URL + localStorage
+  useEffect(() => {
+    if (selected) {
+      setSearchParams({ investor: selected });
+      localStorage.setItem('lastInvestor', selected);
+    } else {
+      setSearchParams({});
+      localStorage.removeItem('lastInvestor');
+    }
+  }, [selected, setSearchParams]);
+
+  // if someone navigates back/forward or edits URL manually
+  useEffect(() => {
+    const inv = searchParams.get('investor') ?? '';
+    if (inv && inv !== selected) {
+      setSelected(inv);
+      setInput(inv);
+    }
+  }, [searchParams]);
 
   // 6) aggregate **one row per class** (grouped by r.class)
   const rows = useMemo(() => {

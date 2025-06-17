@@ -1,0 +1,93 @@
+/* container padding & font */
+.tv-container {
+  padding: 1.5rem;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+/* search form */
+.tv-container form {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.tv-container form input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+}
+
+.tv-container form button {
+  margin-left: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  background: #001f3f;
+  color: white;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.tv-container form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* table wrapper for horizontal scroll */
+.tv-table-wrap, 
+.tv-container > div[style] {
+  overflow-x: auto;
+}
+
+/* full-width, modern table */
+.tv-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid #000; /* outer border */
+}
+
+/* header row */
+.tv-table thead th {
+  background: #001f3f;        /* navy */
+  color: #fff;                /* white text */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 2px solid #000; /* black horizontal line */
+  border-right: 1px solid #000;  /* black vertical line */
+}
+
+/* table cells */
+.tv-table th,
+.tv-table td {
+  padding: 0.75rem 1rem;
+  border-right: 1px solid #000;  /* black vertical line */
+  border-bottom: 1px solid #000; /* black horizontal line */
+  white-space: nowrap;
+}
+
+/* remove right border on last cell */
+.tv-table th:last-child,
+.tv-table td:last-child {
+  border-right: none;
+}
+
+/* zebra striping */
+.tv-table tbody tr:nth-child(even) {
+  background: #fafafb;
+}
+
+/* hover highlight */
+.tv-table tbody tr:hover {
+  background: #d5dee7;
+}
+
+/* smaller text in table */
+.tv-table td {
+  font-size: 0.95rem;
+  color: #333;
+}

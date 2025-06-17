@@ -37,10 +37,11 @@ export interface AuthResult {
 }
 
 // 3) Unified sign-in / sign-up
-export async function loginOrRegister(
-  { email, password }: Credentials
-): Promise<AuthResult> {
-  // Enforce corporate domain
+export async function loginOrRegister({
+  email,
+  password,
+}: Credentials): Promise<AuthResult> {
+  // 0) Enforce corporate email
   if (!email.toLowerCase().endsWith('@aliyacapitalpartners.com')) {
     return {
       created: false,
@@ -50,7 +51,7 @@ export async function loginOrRegister(
     };
   }
 
-  // 1) Try signing in first
+  // 1) Attempt sign-in
   const { data: signInData, error: signInError } =
     await supabase.auth.signInWithPassword({ email, password });
 
@@ -59,9 +60,11 @@ export async function loginOrRegister(
     return { created: false, confirmed: true, data: signInData, error: null };
   }
 
-  // 2) Check for “wrong credentials” (Supabase uses 400 + “Invalid login credentials”)
-  if (signInError.status === 400 &&
-      signInError.message.toLowerCase().includes('invalid login credentials')) {
+  // 2) Handle “invalid credentials”
+  if (
+    signInError.status === 400 &&
+    signInError.message.toLowerCase().includes('invalid login credentials')
+  ) {
     return {
       created: false,
       confirmed: false,
@@ -70,10 +73,9 @@ export async function loginOrRegister(
     };
   }
 
-  // 3) At this point, it wasn’t “invalid credentials” – assume new user:
-  //    (your existing signup code goes here)
+  // 3) At this point, assume new user → sign-up flow
 
-  // 3a) Validate password strength...
+  // 3a) Password strength
   const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{6,}$/;
   if (!pwdRegex.test(password)) {
     return {
@@ -86,17 +88,18 @@ export async function loginOrRegister(
     };
   }
 
-  // 3b) Attempt sign-up
+  // 3b) Sign up
   const { data: signUpData, error: signUpError } =
     await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirm`,
+      },
     });
 
-  // 3c) Handle sign-up errors
+  // 3c) Handle existing-but-unconfirmed
   if (signUpError) {
-    // existing-but-unconfirmed user
     if (
       signUpError.status === 400 &&
       signUpError.message.includes('User already registered')
@@ -104,7 +107,9 @@ export async function loginOrRegister(
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        },
       });
       return {
         created: true,
@@ -116,7 +121,7 @@ export async function loginOrRegister(
       };
     }
 
-    // other sign-up error
+    // other signup error
     return {
       created: true,
       confirmed: false,
