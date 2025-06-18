@@ -67,8 +67,7 @@
 /* table cells */
 .tv-table th,
 .tv-table td {
-  padding: 0.5rem 0.75rem;          /* reduced padding */
-  font-size: 0.85rem;               /* smaller text */
+  padding: 0.5rem 0.75rem;          /* reduced padding */    
   border-right: 1px solid #000;
   border-bottom: 1px solid #000;
   white-space: normal;              /* allow wrapping */
@@ -93,7 +92,7 @@
 
 /* smaller text in table */
 .tv-table td {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: #333;
 }
 
@@ -148,5 +147,24 @@
 }
 .tv-icon:active:not(:disabled) {
   transform: scale(0.95);
+}
+
+.tv-summary {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  font-style: italic;
+  color: #84a2da;
+  line-height: 1.4;
+}
+
+.qTakeaway {
+  color: #d5dee7;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.takeawayContent {
+  border-left: 2px solid #d5dee7;
+  padding-left: 0.75rem;
 }
 

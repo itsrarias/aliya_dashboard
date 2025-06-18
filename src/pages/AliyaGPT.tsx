@@ -18,12 +18,15 @@ const numFmt = new Intl.NumberFormat('en-US', {
 });
 
 export default function AliyaGPT() {
+    //console.log('[📣 AliyaGPT component loaded]');
   const [query, setQuery] = useState('');
   const [table, setTable] = useState<{ cols: string[]; rows: any[][] } | null>(null);
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState('');
+  const [summary, setSummary] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
+     //console.log('[🚀 handleSubmit fired]');
     e.preventDefault();
     if (!query.trim()) return;
 
@@ -39,8 +42,8 @@ const completion = await openai.chat.completions.create({
   messages: [
     {
       role: 'system',
-            content: `
-You are an SQL generator for a Postgres table “series_data”.
+            content: 
+`You are an SQL generator for a Postgres table “series_data”.
 Return **exactly one** SQL SELECT (no backticks or commentary).
 
 — When the user’s question asks to *filter* rows (e.g. “Which investors have side letters?”), you **must** select ALL these columns **in this order**:
@@ -89,7 +92,11 @@ SELECT spv, fund, class, broker, investor, side_letter, sl_notes, rm, percent_rm
   FROM series_data
  WHERE side_letter IS NOT NULL;
 
-— For pure aggregate questions (e.g. “total per class”), only use the columns needed for grouping or aggregation.
+— **Always** return a single SELECT that includes the **full detail column list above**
+  and any needed WHERE filters.  
+  • Do **not** use GROUP BY, COUNT, SUM, or other aggregate functions.  
+  • The client code will calculate totals or counts.
+
 
 Table schema (for reference):
 sheet_name, table_type, spv, fund, class, broker, investor, side_letter,
@@ -103,14 +110,17 @@ loan_fee_percent, loan_fee, net_subscription, inserted_at
     { role: 'user', content: query.trim() },
   ],
 });
+        console.log('[🧪 GPT Completion SQL:]', completion);
 
       const sql = completion.choices?.[0]?.message?.content?.trim() ?? '';
+      console.log('[🔍 GPT SQL]', sql);
+
       if (!sql.toLowerCase().startsWith('select')) {
         throw new Error('Model did not return a SELECT.');
       }
 
       // 2) Execute the SQL via our run_sql RPC
-        // just after you obtain `sql`
+        // just after you obtain sql
         let cleanSql = sql.replace(/;\s*$/, '');   // ← removes one trailing ";"
         if (!cleanSql.toLowerCase().startsWith('select')) {
         throw new Error('Model did not return a SELECT.');
@@ -127,6 +137,41 @@ loan_fee_percent, loan_fee, net_subscription, inserted_at
         setThinking(false);
         return;
       }
+
+      // 3) Ask GPT for a 2-3 sentence plain-English summary of the result
+        try {
+        const summaryCompletion = await openai.chat.completions.create({
+            model: 'gpt-4o',                  // use the same model (or gpt-4o-mini to save tokens)
+            temperature: 0,
+            messages: [
+            {
+                role: 'system',
+                content: `
+        You are a financial data analyst.
+        Write **2-3 sentences** in plain English that summarise the result
+        of the SQL query below.  Mention counts, totals, classes or investors
+        only if they’re obvious from the rows provided.
+        Do not wrap the answer in code fences or JSON.
+            `.trim(),
+            },
+            { role: 'assistant', content: `User question: ${query}` },
+            {
+                role: 'assistant',
+                // the first 100 rows are usually enough context and keep the prompt small
+                content: `Result rows (JSON): ${JSON.stringify(rows.slice(0, 100))}`,
+            },
+            ],
+        });
+        console.log('[🧪 GPT Completion Summary:]', summaryCompletion);
+
+
+        setSummary(summaryCompletion.choices[0]?.message?.content?.trim() ?? '');
+        console.log('[📝 GPT Summary]', summaryCompletion.choices[0]?.message?.content?.trim());
+
+        } catch (err) {
+        console.error('Summary error:', err);
+        setSummary('');          // fail silently – table still shows
+        }
 
       const cols = Object.keys(rows[0]);
       setTable({
@@ -225,6 +270,13 @@ loan_fee_percent, loan_fee, net_subscription, inserted_at
 
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
+{summary && (
+  <div className="tv-summary">
+    <div className="qTakeaway">Quick Takeaway:</div>
+    <div className="takeawayContent">{summary}</div>
+  </div>
+)}
+
 
       {table && (
         <div style={{ overflowX: 'auto' }}>
