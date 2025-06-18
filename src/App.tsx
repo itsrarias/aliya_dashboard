@@ -11,6 +11,8 @@ import TableView     from './pages/TableView';
 import SeriesView    from './pages/SeriesView';
 import InvestorView  from './pages/InvestorView';
 import AliyaGPT      from './pages/AliyaGPT';
+import ChatHome      from './pages/ChatHome';
+import ChatRoom      from './pages/ChatRoom';
 
 import Layout       from './components/Layout';
 
@@ -42,6 +44,8 @@ export default function App() {
             <Route path="series"     element={<SeriesView />} />
             <Route path="investors"  element={<InvestorView />} />
             <Route path="aliyagpt"   element={<AliyaGPT />} />
+            <Route path="/chat" element={<ChatHome />} />
+            <Route path="/chat/:chatId" element={<ChatRoom />} />
           </Route>
 
           {/* Fallback: redirect anything else to “/” */}

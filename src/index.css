@@ -3,7 +3,7 @@
 
 /* your color & spacing tokens */
 :root {
-  --bg-page:   #0b0c2a;
+  --bg-page:   #02062B;
   --card-bg:   #0f1d3a;
   --white:     #ffffff;
   --label:     #cbd5e0;
@@ -29,4 +29,5 @@ html, body {
   color: var(--white);
   font-family: 'Inter', sans-serif;       /* <-- body font */
   -webkit-font-smoothing: antialiased;
+  padding-top: 2.5rem;
 }

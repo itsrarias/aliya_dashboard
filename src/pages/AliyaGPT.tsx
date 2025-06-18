@@ -253,7 +253,7 @@ loan_fee_percent, loan_fee, net_subscription, inserted_at
       {/* the actual input */}
       <input
         className="tv-search-input"
-        placeholder="Ask in plain English…"
+        placeholder="Ask anything about our Aliya Master—e.g. investors with side letters."
         value={query}
         onChange={e => setQuery(e.target.value)}
       />

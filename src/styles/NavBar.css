@@ -1,21 +1,103 @@
+/* NavBar.css */
+
 .navbar {
-  background:#101827;               /* dark slate */
-  padding:0 2rem;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background-color: #02062B;
+  padding: 1rem 0;
+  transition: padding 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
 }
-.navbar ul{
-  display:flex;
-  gap:2rem;
-  list-style:none;
-  margin:0;
-  height:56px;
-  align-items:center;
+
+.navbar.scrolled {
+  padding: 0.5rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
-.navbar a{
-  color:#e2e8f0;
-  font-weight:500;
-  text-decoration:none;
+
+/* NavBar.css */
+.navbar .container {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 1rem;
 }
-.navbar li.active a{
-  color:#38bdf8;                    /* cyan highlight */
-  border-bottom:2px solid currentColor;
+
+
+.navbar .nav-left {
+  justify-self: start;    /* left column */
+  display: none;
+}
+.navbar .logo {
+  justify-self: center;   /* middle column */
+}
+.navbar .nav-right {
+  justify-self: end;      /* right column */
+  display: none;
+}
+
+/* hide on desktop */
+.navbar .mobile-menu-btn {
+  display: none;
+}
+
+/* show only on small screens */
+@media (max-width: 1023px) {
+  .navbar .mobile-menu-btn {
+    display: block;
+  }
+}
+
+/* show links at desktop */
+@media (min-width: 1024px) {
+  .navbar .nav-left,
+  .navbar .nav-right {
+    display: flex;
+    gap: 2rem;
+  }
+}
+
+.navbar .nav-link {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+  font-size: 1rem;
+  transition: color 0.3s ease-in-out, font-size 0.3s ease-in-out;
+}
+
+.navbar.scrolled .nav-link {
+  font-size: 0.875rem;
+}
+
+.navbar .nav-link:hover {
+  color: #94a3b8;
+}
+
+.navbar .nav-link.active {
+  font-weight: 600;
+  border-bottom: 2px solid currentColor;
+}
+
+.navbar .logo img {
+  height: 3rem;
+  transition: height 0.3s ease-in-out;
+}
+
+.navbar.scrolled .logo img {
+  height: 2rem;
+}
+
+.navbar .mobile-menu-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.navbar .mobile-menu-btn:hover {
+  color: #94a3b8;
 }

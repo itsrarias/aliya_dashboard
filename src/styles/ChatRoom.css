@@ -1,0 +1,143 @@
+/* src/styles/ChatRoom.css */
+
+.chat-room {
+  display: flex;
+  flex-direction: column;
+  height: 88vh;               /* fill viewport */
+  max-width: 800px;            /* or whatever width you prefer */
+  margin: 0 auto;              /* center horizontally */
+  background-color: #02062B;   /* dark navy background */
+  color: #f8fafc;              /* off-white text */
+  font-family: 'Inter', sans-serif;
+  padding: 0 1rem;             /* optional side padding */
+}
+
+
+/* Scrollable message area */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* User bubble (right-aligned) */
+.messages .user {
+  align-self: flex-end;
+  background-color: #1e293b;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 16px 16px 0 16px;
+  max-width: 75%;
+  word-wrap: break-word;
+}
+
+/* Assistant bubble (left-aligned) */
+.messages .assistant {
+  align-self: flex-start;
+  background-color: #02062B;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 16px 16px 16px 0;
+  max-width: 75%;
+  word-wrap: break-word;
+}
+
+/* Attachment link styling */
+.messages a {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #bfdbfe;
+  text-decoration: underline;
+  font-size: 0.9rem;
+}
+
+/* File-upload button (hides default input) */
+.chat-upload {
+  display: none;
+}
+
+/* Bottom input bar container */
+.chat-input-bar {
+  display: flex;
+  align-items: center;
+  padding: 0.6rem;
+  background-color: #111827;
+  border-top: 1px solid #1e293b;
+}
+
+/* Image-upload icon button */
+.upload-button {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 1.4rem;
+  margin-right: 0.75rem;
+}
+.upload-button:hover {
+  color: #e2e8f0;
+}
+
+/* Text input */
+.chat-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+/* Send button */
+.send-button {
+  background-color: #2563eb;
+  border: none;
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+.send-button:hover {
+  background-color: #1e40af;
+}
+
+/* staged file preview above input */
+.file-preview {
+  display: flex;
+  align-items: center;
+  background: #1e293b;
+  padding: 0.5rem;
+  margin: 0.5rem 1rem;
+  border-radius: 8px;
+}
+
+.file-preview-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 0.75rem;
+}
+
+.file-preview-name {
+  flex: 1;
+  color: #f8fafc;
+}
+
+.file-preview-remove {
+  background: transparent;
+  border: none;
+  color: #f8fafc;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 0.5rem;
+}
